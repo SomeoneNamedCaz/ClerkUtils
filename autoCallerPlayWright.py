@@ -59,7 +59,7 @@ def goToMemberCallingPage(page,name):
     page.get_by_role("link", name="View Member Profile").click()
     page.get_by_role("link", name="Callings/Classes").click()
 
-def addCalling(page, name, callingClass, callingName):
+def addCalling(page, name, calling):
     goToMemberCallingPage(page,name)
 
     # release old calling if applicable
@@ -67,8 +67,8 @@ def addCalling(page, name, callingClass, callingName):
     
     page.get_by_role("link", name="Add calling").click()
     print("clicked add")
-    page.get_by_role("combobox").select_option(label=callingClass)
-    page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").select_option(label=callingName)
+    page.get_by_role("combobox").select_option(label=calling.org2)
+    page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").select_option(label=calling.callingName)
     page.get_by_role("button", name="Save").click()
     # sleep(1)
     # page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").select_option("object:561")
@@ -98,10 +98,16 @@ def getCallings(page, randomMemberName):
                 organizationCombo = page.get_by_role("combobox").select_option(label=org)
             else:
                 organizationCombo = page.get_by_role("cell",name=lastOrg).get_by_role("combobox").select_option(label=org)
-            # sleep(1)
+            sleep(0.1)
+            
+            try:
+                callingComboHTML = page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").evaluate("el => el.outerHTML")
+            except TimeoutError:
+                page.reload()
+                sleep(1)
+                callingComboHTML = page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").evaluate("el => el.outerHTML")
 
-            callingComboHTML = page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").evaluate("el => el.outerHTML")
-        
+
             allCallings = re.findall("\<opt\w+? label=\"(.+?)\".*?\>", callingComboHTML)
             callingClasses = re.findall("<optgroup label=\"(.+?)\">", callingComboHTML)
 
@@ -144,12 +150,12 @@ def run(playwright: Playwright) -> None:
 
     peopleLabel = Label(root, text="person")
     peopleLabel.pack(anchor=W, padx=10)
-    peopleDropDown = MyAutocompleteCombobox(root,completevalues=people)
+    peopleDropDown = NoOverAutocompleteCombobox(root,completevalues=people)
     peopleDropDown.pack(anchor=W, padx=10)
 
     callingLabel = Label(root,text="calling")
     callingLabel.pack(anchor=W, padx=10)
-    callingDropDown = MyAutocompleteCombobox(root,completevalues=list(callingDict.keys()))
+    callingDropDown = NoOverAutocompleteCombobox(root,completevalues=list(callingDict.keys()))
     callingDropDown.pack(anchor=W, padx=10)
 
 
@@ -159,7 +165,7 @@ def run(playwright: Playwright) -> None:
         calling: Calling = callingDict[callingDropDown.get()]
         peopleDropDown.set("")
         callingDropDown.set("")
-        addCalling(page, memberName, calling.org1,calling.callingName)
+        addCalling(page, memberName, calling)
         # enterCalling(wait, driver, person, calling.org1, calling.org2, calling.callingClass, calling.callingName)
 
 

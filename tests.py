@@ -45,7 +45,7 @@ class TestAddCalling(unittest.TestCase):
             people = getMembers(page)
             callings: list[Calling] = getCallings(page, people[0])
             people = getMembers(page)
-            addCalling(page, people[1], callings[0].callingName, callings[0].callingClass)
+            addCalling(page, people[1], callings[0])
 
     def testAddCallingFromOtherPage(self):
         with sync_playwright() as playwright:
@@ -55,7 +55,20 @@ class TestAddCalling(unittest.TestCase):
             login(page)
             people = getMembers(page)
             callings: list[Calling] = getCallings(page, people[0])
-            addCalling(page, people[1], callings[0].callingName, callings[0].callingClass)
+            addCalling(page, people[1], callings[0])
+
+    def testAddCallingFromOtherPage(self):
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=False)
+            context = browser.new_context()
+            page = context.new_page()
+            login(page)
+            people = getMembers(page)
+            callings: list[Calling] = getCallings(page, people[0])
+            for calling in callings:
+                if calling.callingName == "Activities Council Member":
+                    break
+            addCalling(page, people[1], calling)
 
     
 
