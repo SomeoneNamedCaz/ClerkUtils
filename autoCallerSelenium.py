@@ -145,7 +145,6 @@ if __name__ == "__main__":
     driver.get("https://lcr.churchofjesuschrist.org/?lang=eng")
 
     login(wait)
-    # enterCalling(wait,driver, "Erin Pickett","Relief Society", "Activities","Standard Callings","Relief Society Activity Coordinator")
     people = getPeople(wait, driver)
     loadCallingsFirst = True
     if loadCallingsFirst:

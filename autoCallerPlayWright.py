@@ -53,6 +53,8 @@ def release(page):
         print("didn't release",e)
 
 def goToMemberCallingPage(page,name):
+    page.locator("#menu-list").get_by_text("Membership").click()
+    page.get_by_role("link", name="Member Directory").click()
     page.get_by_role("link", name=name).click()
     page.get_by_role("link", name="View Member Profile").click()
     page.get_by_role("link", name="Callings/Classes").click()
@@ -84,13 +86,12 @@ def getCallings(page, randomMemberName):
 
     callings = []
     currentOrg1 = "None"
-    lastOrg = None#"Select an organization . . ."
+    lastOrg = None
     for org in allOrgs:
-        if len(org1s) > 0 and org == org1s[0]:
+        if len(org1s) > 0 and org == org1s[0]: 
             currentOrg1 = org
             org1s = org1s[1:]
             continue
-        print(org)
         try:
             # page.get_by
             if not lastOrg:
@@ -116,11 +117,9 @@ def getCallings(page, randomMemberName):
             raise #print("failed", e)
             pass
         
-    for calling in callings:
-        print("callings",calling)
+    # for calling in callings:
+    #     print("callings",calling)
     return callings
-
-# def getCallings(page, randomName):
 
 def run(playwright: Playwright) -> None:
     browser = playwright.chromium.launch(headless=False)
@@ -128,26 +127,51 @@ def run(playwright: Playwright) -> None:
     page = context.new_page()
     login(page)
     people = getMembers(page)
-    for person in people: 
-        if "Clark" in person and "Kaden" in person:
-            break
-    memberName = person
-    getCallings(page, memberName)
-    print("done")
-    sleep(2)
-    exit(0)
-    callingClass = "Teachers"
-    callingName = "Elders Quorum Teacher"
-    addCalling(page, memberName, callingClass,callingName)
-    sleep(10)
-    # page.get_by_role("row", name="Relief Society Presidency").locator("a").nth(1).click()
-    # page.get_by_role("checkbox").check()
-    # page.get_by_role("button", name="Save").click()
-    # page.get_by_role("row", name="Relief Society Presidency").locator("a").nth(1).click()
-    # page.get_by_role("checkbox").uncheck()
-    # page.get_by_role("button", name="Save").click()
+    loadCallingsFirst = True
+    if loadCallingsFirst:
+        with open("callingPickle","rb") as out:
+            callings = pickle.load(out)
+    else:
+        callings = getCallings(page, people[0])
+        with open("callingPickle","wb") as out:
+            pickle.dump(callings,out)
+    callingStrs = [str(calling) for calling in callings]
+    callingDict = {str(calling) : calling for calling in callings}
+    root = Tk()
+    root.geometry("300x400")
+    root.configure(background="black")
+    
 
-    # ---------------------
+    peopleLabel = Label(root, text="person")
+    peopleLabel.pack(anchor=W, padx=10)
+    peopleDropDown = MyAutocompleteCombobox(root,completevalues=people)
+    peopleDropDown.pack(anchor=W, padx=10)
+
+    callingLabel = Label(root,text="calling")
+    callingLabel.pack(anchor=W, padx=10)
+    callingDropDown = MyAutocompleteCombobox(root,completevalues=list(callingDict.keys()))
+    callingDropDown.pack(anchor=W, padx=10)
+
+
+    def submit(keyBindArg=None):
+        print("saved")
+        memberName = peopleDropDown.get()
+        calling: Calling = callingDict[callingDropDown.get()]
+        peopleDropDown.set("")
+        callingDropDown.set("")
+        addCalling(page, memberName, calling.org1,calling.callingName)
+        # enterCalling(wait, driver, person, calling.org1, calling.org2, calling.callingClass, calling.callingName)
+
+
+    submitButton = Button(root,text="submit",command=submit,)
+    submitButton.pack(anchor=W, padx=10)
+    submitButton.bind("<Return>", submit)
+
+    print("started")
+    
+
+    root.mainloop()
+
     context.close()
     browser.close()
 

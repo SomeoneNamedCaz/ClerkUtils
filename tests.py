@@ -34,9 +34,31 @@ class TestAddCalling(unittest.TestCase):
             callings: list[Calling] = getCallings(page, people[0])
 
         standardCallings = {calling for calling in callings if calling.callingClass == "Standard Callings"}
-        print("len callingSet", len(callingSet))
-        print("len standard", len(standardCallings))
         self.assertEqual(len(callingSet),len(standardCallings))
+
+    def testAddCallingFromMembDir(self):
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=False)
+            context = browser.new_context()
+            page = context.new_page()
+            login(page)
+            people = getMembers(page)
+            callings: list[Calling] = getCallings(page, people[0])
+            people = getMembers(page)
+            addCalling(page, people[1], callings[0].callingName, callings[0].callingClass)
+
+    def testAddCallingFromOtherPage(self):
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=False)
+            context = browser.new_context()
+            page = context.new_page()
+            login(page)
+            people = getMembers(page)
+            callings: list[Calling] = getCallings(page, people[0])
+            addCalling(page, people[1], callings[0].callingName, callings[0].callingClass)
+
+    
+
 
 
 if __name__ == '__main__':
