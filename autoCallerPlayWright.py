@@ -3,32 +3,41 @@ from playwright.sync_api import Playwright, sync_playwright, expect
 import re
 import pickle
 from time import sleep
+from dropDownFuncs import *
 
+USERNAME = ""
+PASSWORD = ""
+
+with open("loginInfo.config") as file:
+    usernameFlag = "username:"
+    passwordFlag = "password:"
+    for line in file:
+        if usernameFlag in line:
+            USERNAME = line.replace(usernameFlag, "").strip()
+        elif passwordFlag in line:  
+            PASSWORD = line.replace(passwordFlag, "").strip()
+    
 
 def login(page):
-    page.goto("https://id.churchofjesuschrist.org/oauth2/default/v1/authorize?client_id=0oajwqqtpz7f8r1OD357&scope=openid%20profile%20email%20offline_access%20cmisid%20group&response_type=code&redirect_uri=https%3A%2F%2Flcr.churchofjesuschrist.org%2Fapi%2Fauth%2Fcallback&nonce=yHPNHDCO56iJk6aOPjnRw_qjI8XPAN0EUW_gea8qrYI&state=eyJyZXR1cm5UbyI6Imh0dHBzOi8vbGNyLmNodXJjaG9mamVzdXNjaHJpc3Qub3JnLz9sYW5nPWVuZyJ9&code_challenge=sJGmzVysKwEADZgcNY59SLhCgM4SMeO5cjpkmV7dERM&code_challenge_method=S256")
+    page.goto("https://lcr.churchofjesuschrist.org/")
     page.get_by_role("textbox", name="Username").click()
     page.get_by_role("textbox", name="Username").fill(USERNAME)
     page.get_by_role("button", name="Next").click()
     page.get_by_role("textbox", name="Password").fill(PASSWORD)
     page.get_by_role("button", name="Verify").click()
 
-def getMemberDirectory(page):
+def getMembers(page):
     page.locator("#menu-list").get_by_text("Membership").click()
     page.get_by_role("link", name="Member Directory").click()
 
     dirLocator = page.get_by_text("Member Directory Print Individuals Households Show Gender Age Birth Date")
     
     # dirLocator.scroll_into_view_if_needed()
-    sleep(2)
+    sleep(1)
     for i in range(2):
         page.mouse.wheel(0, 15000)
-        sleep(2)
-    return dirLocator
+        sleep(1)
 
-def getMembers(page):
-   
-    dirLocator = getMemberDirectory(page)
     directoryText = dirLocator.evaluate("el => el.outerHTML")
     names = re.findall("<span.+?>\s+([\w ,\.]+)\s+</span>", directoryText)
 
@@ -41,15 +50,15 @@ def release(page):
         page.get_by_role("button", name="Save").click()
         sleep(1)
     except Exception as e:
-        print("exp",e)
+        print("didn't release",e)
 
-# def goToMemberCallingPage(page,name):
-
-
-def addCalling(page, name, callingClass, callingName):
+def goToMemberCallingPage(page,name):
     page.get_by_role("link", name=name).click()
     page.get_by_role("link", name="View Member Profile").click()
     page.get_by_role("link", name="Callings/Classes").click()
+
+def addCalling(page, name, callingClass, callingName):
+    goToMemberCallingPage(page,name)
 
     # release old calling if applicable
     release(page)
@@ -64,36 +73,37 @@ def addCalling(page, name, callingClass, callingName):
     # page.get_by_role("button", name="Save").click()
 
 
-def getCallings(waiter, driver, randomMember):
-    goToMemberCallings(waiter, randomMember)
-    addCallingButton = waiter.until(EC.element_to_be_clickable((By.XPATH, "//a[@ng-click=\"addCalling()\"]")))
-    addCallingButton.click()
-    sleep(0.1)
-    orgTable = driver.find_element(By.XPATH,'//select[@ng-model="selectedSubOrg"]')
-    print(orgTable.get_attribute("outerHTML"))
-    allOrgs = re.findall("\<opt\w+? label=\"([\w\s.]+?)\".*?\>", orgTable.get_attribute("outerHTML"))
-    org1s = re.findall("<optgroup label=\"([\w\s.]+?)\">", orgTable.get_attribute("outerHTML"))
-    print(allOrgs)
-    print(org1s)
+def getCallings(page, randomMemberName):
+    goToMemberCallingPage(page, randomMemberName)
+    page.get_by_role("link", name="Add calling").click()
+    orgTableHTML = page.get_by_role("combobox").evaluate("el => el.outerHTML")
+
+    allOrgs = re.findall("\<opt\w+? label=\"([\w\s.]+?)\".*?\>", orgTableHTML)
+    allOrgs.remove("Select an organization . . .")
+    org1s = re.findall("<optgroup label=\"([\w\s.]+?)\">", orgTableHTML)
+
     callings = []
     currentOrg1 = "None"
+    lastOrg = None#"Select an organization . . ."
     for org in allOrgs:
         if len(org1s) > 0 and org == org1s[0]:
             currentOrg1 = org
             org1s = org1s[1:]
             continue
+        print(org)
         try:
-            organizationCombo = driver.find_element(By.XPATH,'//select[@ng-model="selectedSubOrg"]/optgroup[@label="' + currentOrg1 +'"]/*[contains(text(), "' + org +'")]')
-            organizationCombo.click()
-            sleep(5)
-            callingCombo = driver.find_element(By.XPATH, '//select[@ng-options="p as p.name group by p.typeGroup for p in selectedSubOrg.positions"]')
+            # page.get_by
+            if not lastOrg:
+                organizationCombo = page.get_by_role("combobox").select_option(label=org)
+            else:
+                organizationCombo = page.get_by_role("cell",name=lastOrg).get_by_role("combobox").select_option(label=org)
+            # sleep(1)
+
+            callingComboHTML = page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").evaluate("el => el.outerHTML")
         
-            allCallings = re.findall("\<opt\w+? label=\"(.+?)\".*?\>", callingCombo.get_attribute("outerHTML"))
-            callingClasses = re.findall("<optgroup label=\"(.+?)\">", callingCombo.get_attribute("outerHTML"))
-            print(callingCombo.get_attribute("outerHTML"))
-            print(allCallings)
-            print(callingClasses)
-            print("______________")
+            allCallings = re.findall("\<opt\w+? label=\"(.+?)\".*?\>", callingComboHTML)
+            callingClasses = re.findall("<optgroup label=\"(.+?)\">", callingComboHTML)
+
             currentClass = "None"
             for calling in allCallings:
                 if len(callingClasses) > 0 and calling == callingClasses[0]:
@@ -101,14 +111,16 @@ def getCallings(waiter, driver, randomMember):
                     callingClasses = callingClasses[1:]
                     continue
                 callings.append(Calling(currentOrg1, org, currentClass, calling))
-        except:
+            lastOrg = org
+        except Exception as e:
+            raise #print("failed", e)
             pass
         
     for calling in callings:
-        print(calling)
+        print("callings",calling)
     return callings
 
-def getCallings(page, randomName):
+# def getCallings(page, randomName):
 
 def run(playwright: Playwright) -> None:
     browser = playwright.chromium.launch(headless=False)
@@ -120,6 +132,10 @@ def run(playwright: Playwright) -> None:
         if "Clark" in person and "Kaden" in person:
             break
     memberName = person
+    getCallings(page, memberName)
+    print("done")
+    sleep(2)
+    exit(0)
     callingClass = "Teachers"
     callingName = "Elders Quorum Teacher"
     addCalling(page, memberName, callingClass,callingName)
