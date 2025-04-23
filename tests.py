@@ -12,7 +12,8 @@ class FailedToLocateError(Exception):
 class TestAddCalling(unittest.TestCase):
     
     def testLogin(self):
-         with sync_playwright() as playwright:
+        sleep(10)
+        with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=False)
             context = browser.new_context()
             page = context.new_page()
@@ -25,6 +26,7 @@ class TestAddCalling(unittest.TestCase):
     def testGetMembers(self):
         pass
     def testGetCallings(self):
+        sleep(10)
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=False)
             context = browser.new_context()
@@ -37,6 +39,7 @@ class TestAddCalling(unittest.TestCase):
         self.assertEqual(len(callingSet),len(standardCallings))
 
     def testAddCallingFromMembDir(self):
+        sleep(10)
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=False)
             context = browser.new_context()
@@ -48,6 +51,7 @@ class TestAddCalling(unittest.TestCase):
             addCalling(page, people[1], callings[0])
 
     def testAddCallingFromOtherPage(self):
+        sleep(10)
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=False)
             context = browser.new_context()
@@ -58,6 +62,7 @@ class TestAddCalling(unittest.TestCase):
             addCalling(page, people[1], callings[0])
 
     def testAddCallingFromOtherPage(self):
+        sleep(10)
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=False)
             context = browser.new_context()
@@ -69,8 +74,30 @@ class TestAddCalling(unittest.TestCase):
                 if calling.callingName == "Activities Council Member":
                     break
             addCalling(page, people[1], calling)
+    def testMoveInButtonClickedCSV(self):
+        # sleep(10)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=False)
+            context = browser.new_context()
+            page = context.new_page()
+            login(page)
+            moveInButtonClicked(page, filename="/Users/cazcullimore/Downloads/Move ins (Responses) - Form Responses 1.csv")
+            moveOut()
+    def testMoveInButtonClickedXLSX(self):
+        # sleep(10)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=False)
+            context = browser.new_context()
+            page = context.new_page()
+            login(page)
+            moveInButtonClicked(page, filename="/Users/cazcullimore/Downloads/Move ins (Responses).xlsx")
 
-    
+    def testMoveOut(self):
+         with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=False)
+            context = browser.new_context()
+            page = context.new_page()
+            login(page)
 
 
 

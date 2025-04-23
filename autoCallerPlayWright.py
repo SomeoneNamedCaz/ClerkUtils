@@ -1,12 +1,27 @@
 import re
-from playwright.sync_api import Playwright, sync_playwright, expect
+from playwright.sync_api import Playwright, sync_playwright, expect, TimeoutError
 import re
 import pickle
 from time import sleep
 from dropDownFuncs import *
+from tkinter import filedialog
+import pandas as pd
+from moveIn import *
+from addCallings import *
+import dateutil
 
 USERNAME = ""
 PASSWORD = ""
+
+# column names for movin df
+FULL_NAME_COL = "Full Name"
+BIRTHDATE_COL = "Birthdate"
+BUILDING_ADDR_COL = "Building Address"
+APART_NUM_COL = "Apartment Number (if up or down house, enter anything)"
+
+# city constant
+CITY = "provo"
+
 
 with open("loginInfo.config") as file:
     usernameFlag = "username:"
@@ -17,115 +32,43 @@ with open("loginInfo.config") as file:
         elif passwordFlag in line:  
             PASSWORD = line.replace(passwordFlag, "").strip()
     
+class UnrecognizedFileTypeError(Exception):
+    pass
+
 
 def login(page):
     page.goto("https://lcr.churchofjesuschrist.org/")
-    page.get_by_role("textbox", name="Username").click()
     page.get_by_role("textbox", name="Username").fill(USERNAME)
     page.get_by_role("button", name="Next").click()
     page.get_by_role("textbox", name="Password").fill(PASSWORD)
     page.get_by_role("button", name="Verify").click()
 
-def getMembers(page):
-    page.locator("#menu-list").get_by_text("Membership").click()
-    page.get_by_role("link", name="Member Directory").click()
 
-    dirLocator = page.get_by_text("Member Directory Print Individuals Households Show Gender Age Birth Date")
+def moveInButtonClicked(page, filename=None):
+    if not filename:
+        filename = filedialog.askopenfilename()
+    print('Selected:', filename)
+    if ".xlsx" in filename:
+        df = pd.read_excel(filename)
+    elif ".csv" in filename:
+        df = pd.read_csv(filename)
+    else:
+        raise UnrecognizedFileTypeError()
     
-    # dirLocator.scroll_into_view_if_needed()
-    sleep(1)
-    for i in range(2):
-        page.mouse.wheel(0, 15000)
-        sleep(1)
+    # standardize column types
+    # df[BIRTHDATE_COL] = df[BIRTHDATE_COL].to_datetime()
+    # df[APART_NUM_COL] = df[APART_NUM_COL].to_string()
 
-    directoryText = dirLocator.evaluate("el => el.outerHTML")
-    names = re.findall("<span.+?>\s+([\w ,\.]+)\s+</span>", directoryText)
+    for _, row in df.iterrows():
+        print(row)
+        name = row.loc[FULL_NAME_COL]
+        birthdate = pd.to_datetime(row.loc[BIRTHDATE_COL]).strftime("%d %b %Y")
+        addressLine1 = row.loc[BUILDING_ADDR_COL]
+        addressLine2 = str(row.loc[APART_NUM_COL])
+        print(birthdate)
 
-    return names 
+        moveIn(page, name, birthdate, addressLine1, addressLine2, CITY, "NotUsed")
 
-def release(page):
-    try:
-        page.get_by_text("Member Callings Organization").locator("a").nth(1).click(timeout=5000)
-        page.get_by_role("button", name="Release").click()
-        page.get_by_role("button", name="Save").click()
-        sleep(1)
-    except Exception as e:
-        print("didn't release",e)
-
-def goToMemberCallingPage(page,name):
-    page.locator("#menu-list").get_by_text("Membership").click()
-    page.get_by_role("link", name="Member Directory").click()
-    page.get_by_role("link", name=name).click()
-    page.get_by_role("link", name="View Member Profile").click()
-    page.get_by_role("link", name="Callings/Classes").click()
-
-def addCalling(page, name, calling):
-    goToMemberCallingPage(page,name)
-
-    # release old calling if applicable
-    release(page)
-    
-    page.get_by_role("link", name="Add calling").click()
-    print("clicked add")
-    page.get_by_role("combobox").select_option(label=calling.org2)
-    page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").select_option(label=calling.callingName)
-    page.get_by_role("button", name="Save").click()
-    # sleep(1)
-    # page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").select_option("object:561")
-    # page.get_by_role("button", name="Save").click()
-
-
-def getCallings(page, randomMemberName):
-    goToMemberCallingPage(page, randomMemberName)
-    page.get_by_role("link", name="Add calling").click()
-    orgTableHTML = page.get_by_role("combobox").evaluate("el => el.outerHTML")
-
-    allOrgs = re.findall("\<opt\w+? label=\"([\w\s.]+?)\".*?\>", orgTableHTML)
-    allOrgs.remove("Select an organization . . .")
-    org1s = re.findall("<optgroup label=\"([\w\s.]+?)\">", orgTableHTML)
-
-    callings = []
-    currentOrg1 = "None"
-    lastOrg = None
-    for org in allOrgs:
-        if len(org1s) > 0 and org == org1s[0]: 
-            currentOrg1 = org
-            org1s = org1s[1:]
-            continue
-        try:
-            # page.get_by
-            if not lastOrg:
-                organizationCombo = page.get_by_role("combobox").select_option(label=org)
-            else:
-                organizationCombo = page.get_by_role("cell",name=lastOrg).get_by_role("combobox").select_option(label=org)
-            sleep(0.1)
-            
-            try:
-                callingComboHTML = page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").evaluate("el => el.outerHTML")
-            except TimeoutError:
-                page.reload()
-                sleep(1)
-                callingComboHTML = page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").evaluate("el => el.outerHTML")
-
-
-            allCallings = re.findall("\<opt\w+? label=\"(.+?)\".*?\>", callingComboHTML)
-            callingClasses = re.findall("<optgroup label=\"(.+?)\">", callingComboHTML)
-
-            currentClass = "None"
-            for calling in allCallings:
-                if len(callingClasses) > 0 and calling == callingClasses[0]:
-                    currentClass = calling
-                    callingClasses = callingClasses[1:]
-                    continue
-                callings.append(Calling(currentOrg1, org, currentClass, calling))
-            lastOrg = org
-        except Exception as e:
-            raise #print("failed", e)
-            pass
-        
-    # for calling in callings:
-    #     print("callings",calling)
-    return callings
 
 def run(playwright: Playwright) -> None:
     browser = playwright.chromium.launch(headless=False)
@@ -172,6 +115,17 @@ def run(playwright: Playwright) -> None:
     submitButton = Button(root,text="submit",command=submit,)
     submitButton.pack(anchor=W, padx=10)
     submitButton.bind("<Return>", submit)
+    
+
+    
+
+            
+
+
+    importButton = Button(root, text='Import Move-in Data', command=lambda:moveInButtonClicked(page))
+    importButton.pack()
+
+
 
     print("started")
     
