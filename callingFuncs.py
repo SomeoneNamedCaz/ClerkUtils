@@ -6,7 +6,6 @@ from time import sleep
 from dropDownFuncs import *
 from tkinter import filedialog
 import pandas as pd
-from moveIn import *
 import dateutil
 
 def getMembers(page):
@@ -23,10 +22,7 @@ def getMembers(page):
 
     directoryText = dirLocator.evaluate("el => el.outerHTML")
     names = re.findall("<span.+?>\s+([\w ,\.]+)\s+</span>", directoryText)
-    for i,name in enumerate(names):
-        family, given = name.split(", ")
-        names[i] = " ".join((given,family))
-    print(names)
+
     return names 
 
 def release(page):
@@ -41,6 +37,10 @@ def release(page):
 def goToMemberCallingPage(page,name):
     page.locator("#menu-list").get_by_text("Membership").click()
     page.get_by_role("link", name="Member Directory").click()
+    # sleep(1)
+    # for i in range(2):
+    #     page.mouse.wheel(0, 15000)
+    #     sleep(1)
     page.get_by_role("link", name=name).click()
     page.get_by_role("link", name="View Member Profile").click()
     page.get_by_role("link", name="Callings/Classes").click()

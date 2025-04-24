@@ -6,8 +6,8 @@ from time import sleep
 from dropDownFuncs import *
 from tkinter import filedialog
 import pandas as pd
-from moveIn import *
-from addCallings import *
+from moveFuncs import *
+from callingFuncs import *
 import dateutil
 
 USERNAME = ""
@@ -21,6 +21,7 @@ APART_NUM_COL = "Apartment Number (if up or down house, enter anything)"
 
 # city constant
 CITY = "provo"
+PICKLE_FILENAME = "memberData.pkl"
 
 
 with open("loginInfo.config") as file:
@@ -55,36 +56,43 @@ def moveInButtonClicked(page, filename=None):
     else:
         raise UnrecognizedFileTypeError()
     
-    # standardize column types
-    # df[BIRTHDATE_COL] = df[BIRTHDATE_COL].to_datetime()
-    # df[APART_NUM_COL] = df[APART_NUM_COL].to_string()
-
-    for _, row in df.iterrows():
-        print(row)
-        name = row.loc[FULL_NAME_COL]
-        birthdate = pd.to_datetime(row.loc[BIRTHDATE_COL]).strftime("%d %b %Y")
-        addressLine1 = row.loc[BUILDING_ADDR_COL]
-        addressLine2 = str(row.loc[APART_NUM_COL])
-        print(birthdate)
-
-        moveIn(page, name, birthdate, addressLine1, addressLine2, CITY, "NotUsed")
-
+    with open("failedMoveIns.txt","w") as file:
+        for _, row in df.iterrows():
+            print(row)
+            name = row.loc[FULL_NAME_COL]
+            birthdate = pd.to_datetime(row.loc[BIRTHDATE_COL]).strftime("%d %b %Y")
+            addressLine1 = re.findall(r"\((.+)\)",row.loc[BUILDING_ADDR_COL])
+            addressLine2 = str(row.loc[APART_NUM_COL])
+            print( name, birthdate, addressLine1, addressLine2, CITY,)
+            try:
+                moveIn(page, name, birthdate, addressLine1, addressLine2, CITY, "NotUsed")
+            except TimeoutError:
+                print(name, birthdate, addressLine1, addressLine2, CITY, file=file)
+            
+def updatePickleFile(page):
+    people = getMembers(page)
+    sleep(1)
+    callings = getCallings(page, people[0])
+    with open(PICKLE_FILENAME,"wb") as out:
+        pickle.dump((callings, people),out)
+    return callings, people
 
 def run(playwright: Playwright) -> None:
     browser = playwright.chromium.launch(headless=False)
     context = browser.new_context()
     page = context.new_page()
     login(page)
-    people = getMembers(page)
-    loadCallingsFirst = True
-    if loadCallingsFirst:
-        with open("callingPickle","rb") as out:
-            callings = pickle.load(out)
-    else:
-        callings = getCallings(page, people[0])
-        with open("callingPickle","wb") as out:
-            pickle.dump(callings,out)
-    callingStrs = [str(calling) for calling in callings]
+
+    try:
+        with open(PICKLE_FILENAME,"rb") as out:
+            callings, people = pickle.load(out)
+    except FileNotFoundError:
+        callings, people = updatePickleFile(page)
+    
+    for i,name in enumerate(people):
+        family, given = name.split(", ")
+        people[i] = " ".join((given,family))
+    
     callingDict = {str(calling) : calling for calling in callings}
     root = Tk()
     root.geometry("300x400")
@@ -117,10 +125,6 @@ def run(playwright: Playwright) -> None:
     submitButton.bind("<Return>", submit)
     
 
-    
-
-            
-
 
     importButton = Button(root, text='Import Move-in Data', command=lambda:moveInButtonClicked(page))
     importButton.pack()
@@ -129,6 +133,7 @@ def run(playwright: Playwright) -> None:
 
     print("started")
     
+    updatePickleFile(page)
 
     root.mainloop()
 
