@@ -32,9 +32,7 @@ class NoOverAutocompleteCombobox(AutocompleteCombobox):
             return super().handle_keyrelease(event)
         
     def handle_keypress(self, event):
-        if self.get() == "":
-            self.keysPressed = 1
-        elif event.keysym == "Tab":
+        if event.keysym == "Tab":
             self.keysPressed = 0
         else:
             self.keysPressed += 1

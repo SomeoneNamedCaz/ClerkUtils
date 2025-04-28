@@ -154,22 +154,21 @@ def loadTkinter(people, callingDict, callingQueue):
         updateMemberDataButton = Button(root, text='update member data', command=updateMemberData)
         updateMemberDataButton.pack()
 
+
+        root.attributes('-topmost',True)
         root.mainloop()
 
 def runPlaywright(callingQueue) -> None:
     try:
         with sync_playwright() as playwright:
-            
-
             browser = playwright.chromium.launch(headless=True)
             context = browser.new_context()
             page = context.new_page()
-            login(page)
 
-            # updatePickleFile(page)
+            login(page)
+            updatePickleFile(page)
 
             addCallingLoop(callingQueue, page)
-            
 
             context.close()
             browser.close()
@@ -181,7 +180,6 @@ def runPlaywright(callingQueue) -> None:
 
 if __name__ == "__main__":
     exec = ThreadPoolExecutor(1)
-    # exec.submit(loadTkinter)
     callingQueue = Queue()
     future = exec.submit(runPlaywright, callingQueue)
 
