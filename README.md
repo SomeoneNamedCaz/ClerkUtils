@@ -3,6 +3,7 @@
 a simple tkinter application for automating callings and move ins.
 
 install instructions
+
     git clone https://github.com/SomeoneNamedCaz/ClerkUtils.git
     cd ClerkUtils
     python -m venv .venv  # create venv 
@@ -12,5 +13,6 @@ install instructions
     playwright install-deps
 
 
-to run:
+To Run:
+
     python main.py # run program
