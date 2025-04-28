@@ -3,18 +3,16 @@ from playwright.sync_api import Playwright, sync_playwright, expect, TimeoutErro
 import re
 import pickle
 from time import sleep
-from dropDownFuncs import *
+from dropDownClasses import *
 
-def moveIn(page: Page, name, birthdate, addressLine1, addressLine2, city, state):
+def moveIn(page: Page, name, birthdate, addressLine1, addressLine2, city):
     page.locator("#menu-list").get_by_text("Membership").click()
     page.get_by_role("link", name="Move Records In").click()
-    page.get_by_role("textbox", name="Member Lookup").fill(name)
+    page.get_by_role("textbox", name="Member Lookup").fill(name.strip())
     page.get_by_role("textbox", name="Birth Date").fill(birthdate)
     page.get_by_role("button", name="Lookup").click()
     sleep(1)
-    page.get_by_text(name).click()
-    sleep(1)
-    page.locator("#select-001004216582A").check()
+    page.get_by_role("checkbox", name=name.split(" ")[0]).check() # hopefully no one has the same first name in the same family
     sleep(1)
     page.get_by_role("button", name="Continue").click()
     page.get_by_role("textbox", name="Street 1").fill(addressLine1)
@@ -29,7 +27,7 @@ def moveIn(page: Page, name, birthdate, addressLine1, addressLine2, city, state)
         pass
     sleep(10)
 
-def moveOut(page: Page, name,  addressLine1, addressLine2, city, state):
+def moveOut(page: Page, name,  addressLine1, addressLine2, city):
     page.locator("#menu-list").get_by_text("Membership").click()
     page.get_by_role("link", name="Move Records Out").click()
     page.get_by_role("textbox", name="Member Name or MRN").fill(name)

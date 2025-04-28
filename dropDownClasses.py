@@ -13,7 +13,6 @@ class Calling():
     def __repr__(self):
         return self.__str__()
     def __str__(self):
-        # return "Calling("  + ", ".join(reversed([self.org1, self.org2, self.callingClass, self.callingName])) + ")"
         return ", ".join([self.callingName, self.org1, self.org2, self.callingClass])
     
 class NoOverAutocompleteCombobox(AutocompleteCombobox):
@@ -27,13 +26,17 @@ class NoOverAutocompleteCombobox(AutocompleteCombobox):
 
     def handle_keyrelease(self, event):
         self.keysPressed -= 1
+        if event.keysym == "Tab":
+            self.keysPressed = 0
         if self.keysPressed == 0:
             return super().handle_keyrelease(event)
         
     def handle_keypress(self, event):
-        self.keysPressed += 1
+        if self.get() == "":
+            self.keysPressed = 1
+        elif event.keysym == "Tab":
+            self.keysPressed = 0
+        else:
+            self.keysPressed += 1
 
-def focus_next_widget(event):
-    event.widget.tk_focusNext().focus()
-    return("break")
 

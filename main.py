@@ -1,14 +1,19 @@
 import re
 from playwright.sync_api import Playwright, sync_playwright, expect, TimeoutError
+import playwright
 import re
 import pickle
 from time import sleep
-from dropDownFuncs import *
+from dropDownClasses import *
 from tkinter import filedialog
 import pandas as pd
 from moveFuncs import *
 from callingFuncs import *
 import dateutil
+from concurrent.futures import *
+from queue import Queue
+import os
+import sys
 
 USERNAME = ""
 PASSWORD = ""
@@ -35,6 +40,8 @@ with open("loginInfo.config") as file:
     
 class UnrecognizedFileTypeError(Exception):
     pass
+class InvalidMemberDataException(Exception):
+    pass
 
 
 def login(page):
@@ -45,7 +52,7 @@ def login(page):
     page.get_by_role("button", name="Verify").click()
 
 
-def moveInButtonClicked(page, filename=None):
+def loadMoveInDF(queue: Queue,filename=None):
     if not filename:
         filename = filedialog.askopenfilename()
     print('Selected:', filename)
@@ -55,19 +62,29 @@ def moveInButtonClicked(page, filename=None):
         df = pd.read_csv(filename)
     else:
         raise UnrecognizedFileTypeError()
+    df.dropna(inplace=True)
+    queue.put(df)
+
+    return df
     
-    with open("failedMoveIns.txt","w") as file:
+def processMoveInDF(page: Page, df: pd.DataFrame):
+    with open("failedMoveIns.txt","a") as file:
         for _, row in df.iterrows():
-            print(row)
             name = row.loc[FULL_NAME_COL]
             birthdate = pd.to_datetime(row.loc[BIRTHDATE_COL]).strftime("%d %b %Y")
-            addressLine1 = re.findall(r"\((.+)\)",row.loc[BUILDING_ADDR_COL])
-            addressLine2 = str(row.loc[APART_NUM_COL])
-            print( name, birthdate, addressLine1, addressLine2, CITY,)
+            addressLine1 = re.findall(r"\((.+)\)",row.loc[BUILDING_ADDR_COL])[0]
+            addressLine2 = str(int(row.loc[APART_NUM_COL]))
+
             try:
-                moveIn(page, name, birthdate, addressLine1, addressLine2, CITY, "NotUsed")
-            except TimeoutError:
-                print(name, birthdate, addressLine1, addressLine2, CITY, file=file)
+                moveIn(page, name, birthdate, addressLine1, addressLine2, CITY)
+            except playwright._impl._errors.TimeoutError as e:
+                if page.get_by_text("we were unable to find any records that match the criteria provided").is_visible():
+                    print("BAD INFO",name, birthdate, addressLine1, addressLine2, CITY, file=file)
+                elif page.get_by_text("The requested household is already in the ward").is_visible():
+                    print("ALREADY MOVED IN",name, birthdate, addressLine1, addressLine2, CITY, file=file)
+                else:
+                    print("UNKNOWN ERROR",name, birthdate, addressLine1, addressLine2, CITY, file=file)
+                
             
 def updatePickleFile(page):
     people = getMembers(page)
@@ -77,72 +94,103 @@ def updatePickleFile(page):
         pickle.dump((callings, people),out)
     return callings, people
 
-def run(playwright: Playwright) -> None:
-    browser = playwright.chromium.launch(headless=False)
-    context = browser.new_context()
-    page = context.new_page()
-    login(page)
+def addCallingLoop(queue: Queue, page: Page):
+    while True:
+        if queue.empty():
+            sleep(10)
+        else:
+            nextItem = queue.get(block=False)
+            if type(nextItem) == pd.DataFrame:
+                print("started processing move ins")
+                processMoveInDF(page,nextItem)
+                print("finished move ins")
+            else:
+                addCalling(page,*nextItem)
+            print("calling added")
 
+def loadTkinter(people, callingDict, callingQueue):
+        root = Tk()
+        root.geometry("1000x400")
+        # root.configure(background="black")
+        
+
+        peopleLabel = Label(root, text="person")
+        peopleLabel.pack(anchor=W, padx=10)
+        peopleDropDown = NoOverAutocompleteCombobox(root, 
+                                                    completevalues=people,
+                                                    width=max(len(name) for name in people))
+        peopleDropDown.pack(anchor=W, padx=10)
+
+        callingLabel = Label(root,text="calling")
+        callingLabel.pack(anchor=W, padx=10)
+        callingDropDown = NoOverAutocompleteCombobox(root,
+                                                     completevalues=list(callingDict.keys()),
+                                                     width=max(len(callingName) for callingName in callingDict.keys()))
+        callingDropDown.pack(anchor=W, padx=10)
+
+        def submitCalling(keyBindArg=None):
+            print("saved")
+            memberName = peopleDropDown.get()
+            calling: Calling = callingDict[callingDropDown.get()]
+                
+            peopleDropDown.set("")
+            callingDropDown.set("")
+            callingQueue.put((memberName, calling))
+
+
+        submitButton = Button(root,text="submit",command=submitCalling)
+        submitButton.pack(anchor=W, padx=10)
+        submitButton.bind("<Return>", submitCalling)
+
+        importButton = Button(root, text='Import Move-in Data', command=lambda: loadMoveInDF(callingQueue))
+        importButton.pack()
+
+        def updateMemberData():
+            with open(PICKLE_FILENAME,"rb") as out:
+                callings, people = pickle.load(out)
+                callingDropDown.set_completion_list([str(calling) for calling in callings])
+                peopleDropDown.set_completion_list(people)
+
+        updateMemberDataButton = Button(root, text='update member data', command=updateMemberData)
+        updateMemberDataButton.pack()
+
+        root.mainloop()
+
+def runPlaywright(callingQueue) -> None:
     try:
-        with open(PICKLE_FILENAME,"rb") as out:
-            callings, people = pickle.load(out)
-    except FileNotFoundError:
-        callings, people = updatePickleFile(page)
-    
-    for i,name in enumerate(people):
-        family, given = name.split(", ")
-        people[i] = " ".join((given,family))
-    
-    callingDict = {str(calling) : calling for calling in callings}
-    root = Tk()
-    root.geometry("300x400")
-    root.configure(background="black")
-    
+        with sync_playwright() as playwright:
+            
 
-    peopleLabel = Label(root, text="person")
-    peopleLabel.pack(anchor=W, padx=10)
-    peopleDropDown = NoOverAutocompleteCombobox(root,completevalues=people)
-    peopleDropDown.pack(anchor=W, padx=10)
+            browser = playwright.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
+            login(page)
 
-    callingLabel = Label(root,text="calling")
-    callingLabel.pack(anchor=W, padx=10)
-    callingDropDown = NoOverAutocompleteCombobox(root,completevalues=list(callingDict.keys()))
-    callingDropDown.pack(anchor=W, padx=10)
+            # updatePickleFile(page)
 
+            addCallingLoop(callingQueue, page)
+            
 
-    def submit(keyBindArg=None):
-        print("saved")
-        memberName = peopleDropDown.get()
-        calling: Calling = callingDict[callingDropDown.get()]
-        peopleDropDown.set("")
-        callingDropDown.set("")
-        addCalling(page, memberName, calling)
-        # enterCalling(wait, driver, person, calling.org1, calling.org2, calling.callingClass, calling.callingName)
-
-
-    submitButton = Button(root,text="submit",command=submit,)
-    submitButton.pack(anchor=W, padx=10)
-    submitButton.bind("<Return>", submit)
-    
-
-
-    importButton = Button(root, text='Import Move-in Data', command=lambda:moveInButtonClicked(page))
-    importButton.pack()
-
-
-
-    print("started")
-    
-    updatePickleFile(page)
-
-    root.mainloop()
-
-    context.close()
-    browser.close()
+            context.close()
+            browser.close()
+    except Exception:
+        sys.excepthook(*sys.exc_info())
+        exit(1)
 
 
 
 if __name__ == "__main__":
-    with sync_playwright() as playwright:
-        run(playwright)
+    exec = ThreadPoolExecutor(1)
+    # exec.submit(loadTkinter)
+    callingQueue = Queue()
+    future = exec.submit(runPlaywright, callingQueue)
+
+    # if the data hasn't been saved wait until playwright gets it
+    while not os.path.exists(PICKLE_FILENAME):
+        sleep(1)
+    
+    with open(PICKLE_FILENAME,"rb") as out:
+        callings, people = pickle.load(out)
+    callingDict = {str(calling) : calling for calling in callings}
+    loadTkinter(people, callingDict,callingQueue)
     
