@@ -2,7 +2,7 @@
 
 a simple tkinter application for automating callings and move ins.
 
-install instructions
+To Install:
 
     git clone https://github.com/SomeoneNamedCaz/ClerkUtils.git
     cd ClerkUtils
@@ -15,4 +15,4 @@ install instructions
 
 To Run:
 
-    python main.py # run program
+    python main.py  # run program
