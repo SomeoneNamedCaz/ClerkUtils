@@ -1,6 +1,6 @@
 # Clerk Utils
 
-a simple tkinter application for automating callings and move ins.
+### A simple tkinter application for automating callings and move ins.
 
 To Install:
 
