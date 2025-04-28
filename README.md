@@ -11,7 +11,7 @@ To Install:
     pip install pandas playwright ttkwidgets openpyxl
     playwright install  # playwright has extra steps to install everything
     playwright install-deps
-
+    nano loginInfo.config  # replace <USERNAME> <PASSWORD> with your actual username and password
 
 To Run:
 
