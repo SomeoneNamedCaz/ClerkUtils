@@ -89,7 +89,7 @@ def processMoveInDF(page: Page, df: pd.DataFrame):
 def updatePickleFile(page):
     people = getMembers(page)
     sleep(1)
-    callings = getCallings(page, people[0])
+    callings = getCallings(page, people)
     with open(PICKLE_FILENAME,"wb") as out:
         pickle.dump((callings, people),out)
     return callings, people
@@ -108,7 +108,7 @@ def addCallingLoop(queue: Queue, page: Page):
                 addCalling(page,*nextItem)
             print("calling added")
 
-def loadTkinter(people, callingDict, callingQueue):
+def loadTkinter(peopleDict, callingDict, callingQueue):
         root = Tk()
         root.geometry("1000x400")
         # root.configure(background="black")
@@ -117,8 +117,8 @@ def loadTkinter(people, callingDict, callingQueue):
         peopleLabel = Label(root, text="person")
         peopleLabel.pack(anchor=W, padx=10)
         peopleDropDown = NoOverAutocompleteCombobox(root, 
-                                                    completevalues=people,
-                                                    width=max(len(name) for name in people))
+                                                    completevalues=list(peopleDict.keys()),
+                                                    width=max(len(name) for name in peopleDict.keys()))
         peopleDropDown.pack(anchor=W, padx=10)
 
         callingLabel = Label(root,text="calling")
@@ -130,7 +130,7 @@ def loadTkinter(people, callingDict, callingQueue):
 
         def submitCalling(keyBindArg=None):
             print("saved")
-            memberName = peopleDropDown.get()
+            memberName = peopleDict[peopleDropDown.get()]
             calling: Calling = callingDict[callingDropDown.get()]
                 
             peopleDropDown.set("")
@@ -190,5 +190,12 @@ if __name__ == "__main__":
     with open(PICKLE_FILENAME,"rb") as out:
         callings, people = pickle.load(out)
     callingDict = {str(calling) : calling for calling in callings}
-    loadTkinter(people, callingDict,callingQueue)
+    firstNamesFirst = []
+    peopleDict = {}
+    for lastFirst in people:
+        family, given = lastFirst.split(", ")
+        firstLast = " ".join((given,family))
+        peopleDict[firstLast] = lastFirst
+
+    loadTkinter(peopleDict, callingDict,callingQueue)
     

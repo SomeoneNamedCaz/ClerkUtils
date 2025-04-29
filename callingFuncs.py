@@ -8,7 +8,7 @@ from tkinter import filedialog
 import pandas as pd
 import dateutil
 
-def getMembers(page):
+def getMembers(page): 
     page.locator("#menu-list").get_by_text("Membership").click()
     page.get_by_role("link", name="Member Directory").click()
 
@@ -22,9 +22,7 @@ def getMembers(page):
 
     directoryText = dirLocator.evaluate("el => el.outerHTML")
     names = re.findall("<span.+?>\s+([\w ,\.]+)\s+</span>", directoryText)
-    for i, name in enumerate(names):
-        family, given = name.split(", ")
-        names[i] = " ".join((given,family))
+    
     return names 
 
 def release(page):
@@ -37,10 +35,6 @@ def release(page):
         print("didn't release",e)
 
 def goToMemberCallingPage(page,name):
-    # given,family = name.split(" ")
-    # name = ", ".join((family,given))
-    *given,family = name.split(" ")
-    name = ", ".join((family," ".join(given)))
 
     page.locator("#menu-list").get_by_text("Membership").click()
     page.get_by_role("link", name="Member Directory").click()
@@ -69,44 +63,60 @@ def addCalling(page, name, calling):
     sleep(0.5)
 
 
-def getCallings(page, randomMemberName):
-    goToMemberCallingPage(page, randomMemberName)
-    page.get_by_role("link", name="Add calling").click()
-    orgTableHTML = page.get_by_role("combobox").evaluate("el => el.outerHTML")
-
-    allOrgs = re.findall("\<opt\w+? label=\"(.+?)\".*?\>", orgTableHTML)
-    allOrgs.remove("Select an organization . . .")
-    org1s = re.findall("<optgroup label=\"(.+?)\">", orgTableHTML)
+def getCallings(page, members):
 
     callings = []
-    currentOrg1 = "None"
-    lastOrg = None
-    for org in allOrgs:
-        if len(org1s) > 0 and org == org1s[0]: 
-            currentOrg1 = org
-            org1s = org1s[1:]
-            continue
-        if not lastOrg:
-            organizationCombo = page.get_by_role("combobox").select_option(label=org)
-        else:
-            organizationCombo = page.get_by_role("cell",name=lastOrg).get_by_role("combobox").select_option(label=org)
-        sleep(1)
+    foundEQ = False
+    foundRS = False
+
+    for member in members:
+        goToMemberCallingPage(page, member)
+        page.get_by_role("link", name="Add calling").click()
+        orgTableHTML = page.get_by_role("combobox").evaluate("el => el.outerHTML")
+
+        allOrgs = re.findall("\<opt\w+? label=\"(.+?)\".*?\>", orgTableHTML)
+        allOrgs.remove("Select an organization . . .")
+        org1s = re.findall("<optgroup label=\"(.+?)\">", orgTableHTML)
+
         
-        callingComboHTML = page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").evaluate("el => el.outerHTML")
-
-        allCallings = re.findall("\<opt\w+? label=\"(.+?)\".*?\>", callingComboHTML)
-        callingClasses = re.findall("<optgroup label=\"(.+?)\">", callingComboHTML)
-
-        currentClass = "None"
-        for calling in allCallings:
-            if len(callingClasses) > 0 and calling == callingClasses[0]:
-                currentClass = calling
-                callingClasses = callingClasses[1:]
+        currentOrg1 = "None"
+        lastOrg = None
+        for org in allOrgs:
+            print(org)
+            if "Elders Quorum" in org:
+                foundEQ = True
+            if "Relief Society" in org:
+                foundRS = True
+            if len(org1s) > 0 and org == org1s[0]: 
+                currentOrg1 = org
+                org1s = org1s[1:]
                 continue
-            if "Select a calling" in calling:
-                continue
+            if not lastOrg:
+                organizationCombo = page.get_by_role("combobox").select_option(label=org)
+            else:
+                organizationCombo = page.get_by_role("cell",name=lastOrg).get_by_role("combobox").select_option(label=org)
+            sleep(1)
             
-            callings.append(Calling(currentOrg1, org, currentClass, calling))
+            callingComboHTML = page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").evaluate("el => el.outerHTML")
 
-        lastOrg = org
+            allCallings = re.findall("\<opt\w+? label=\"(.+?)\".*?\>", callingComboHTML)
+            callingClasses = re.findall("<optgroup label=\"(.+?)\">", callingComboHTML)
+
+            currentClass = "None"
+            for calling in allCallings:
+                if len(callingClasses) > 0 and calling == callingClasses[0]:
+                    currentClass = calling
+                    callingClasses = callingClasses[1:]
+                    continue
+                if "Select a calling" in calling:
+                    continue
+                
+                callingObj = Calling(currentOrg1, org, currentClass, calling)
+                if callingObj not in callings:
+                    callings.append(callingObj)
+
+            lastOrg = org
+        if foundEQ and foundRS:
+            break
+
     return callings

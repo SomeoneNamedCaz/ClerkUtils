@@ -10,6 +10,9 @@ class Calling():
         self.org2 = org2
         self.callingClass = callingClass
         self.callingName = callingName
+
+    def __eq__(self, value):
+        return self.__str__() == str(value)
     def __repr__(self):
         return self.__str__()
     def __str__(self):
