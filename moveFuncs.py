@@ -12,7 +12,9 @@ def moveIn(page: Page, name, birthdate, addressLine1, addressLine2, city):
     page.get_by_role("textbox", name="Birth Date").fill(birthdate)
     page.get_by_role("button", name="Lookup").click()
     sleep(1)
-    page.get_by_role("checkbox", name=name.split(" ")[0]).check() # hopefully no one has the same first name in the same family
+    print(re.compile(name.split(" ")[0] + "[.s()]*"))
+    expect(page.get_by_role("cell")).to_have_count(8) # throw error if trying to move a family
+    page.get_by_role("checkbox", name="Select All").check()
     sleep(1)
     page.get_by_role("button", name="Continue").click()
     page.get_by_role("textbox", name="Street 1").fill(addressLine1)

@@ -77,7 +77,7 @@ def getCallings(page, members):
         allOrgs = re.findall("\<opt\w+? label=\"(.+?)\".*?\>", orgTableHTML)
         allOrgs.remove("Select an organization . . .")
         org1s = re.findall("<optgroup label=\"(.+?)\">", orgTableHTML)
-
+        print("org table",orgTableHTML)
         
         currentOrg1 = "None"
         lastOrg = None
@@ -91,6 +91,7 @@ def getCallings(page, members):
                 currentOrg1 = org
                 org1s = org1s[1:]
                 continue
+            print("outer",page.get_by_role("combobox").all_text_contents())
             if not lastOrg:
                 organizationCombo = page.get_by_role("combobox").select_option(label=org)
             else:
@@ -98,10 +99,10 @@ def getCallings(page, members):
             sleep(1)
             
             callingComboHTML = page.get_by_role("cell", name="Select a calling . .").get_by_role("combobox").evaluate("el => el.outerHTML")
-
+            print("calling table",callingComboHTML)
             allCallings = re.findall("\<opt\w+? label=\"(.+?)\".*?\>", callingComboHTML)
             callingClasses = re.findall("<optgroup label=\"(.+?)\">", callingComboHTML)
-
+            print("callings",allCallings)
             currentClass = "None"
             for calling in allCallings:
                 if len(callingClasses) > 0 and calling == callingClasses[0]:

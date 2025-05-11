@@ -70,12 +70,12 @@ def loadMoveInDF(queue: Queue,filename=None):
 def processMoveInDF(page: Page, df: pd.DataFrame):
     with open("failedMoveIns.txt","a") as file:
         for _, row in df.iterrows():
-            name = row.loc[FULL_NAME_COL]
-            birthdate = pd.to_datetime(row.loc[BIRTHDATE_COL]).strftime("%d %b %Y")
-            addressLine1 = re.findall(r"\((.+)\)",row.loc[BUILDING_ADDR_COL])[0]
-            addressLine2 = str(int(row.loc[APART_NUM_COL]))
-
             try:
+                name = row.loc[FULL_NAME_COL]
+                birthdate = pd.to_datetime(row.loc[BIRTHDATE_COL]).strftime("%d %b %Y")
+                addressLine1 = re.findall(r"\((.+)\)",row.loc[BUILDING_ADDR_COL])[0]
+                addressLine2 = "Apt " + str(int(row.loc[APART_NUM_COL]))
+
                 moveIn(page, name, birthdate, addressLine1, addressLine2, CITY)
             except playwright._impl._errors.TimeoutError as e:
                 if page.get_by_text("we were unable to find any records that match the criteria provided").is_visible():
@@ -84,7 +84,14 @@ def processMoveInDF(page: Page, df: pd.DataFrame):
                     print("ALREADY MOVED IN",name, birthdate, addressLine1, addressLine2, CITY, file=file)
                 else:
                     print("UNKNOWN ERROR",name, birthdate, addressLine1, addressLine2, CITY, file=file)
-                
+            except AssertionError:
+                if page.get_by_text("The requested household is already in the ward").is_visible():
+                    print("ALREADY MOVED IN",name, birthdate, addressLine1, addressLine2, CITY, file=file)
+                else:
+                    print("IN WARD WITH FAMILY",name, birthdate, addressLine1, addressLine2, CITY, file=file)
+            except Exception as e:
+                print("GENERAL CATCH", e, name, birthdate, addressLine1, addressLine2, CITY, file=file)
+
             
 def updatePickleFile(page):
     people = getMembers(page)
@@ -155,18 +162,22 @@ def loadTkinter(peopleDict, callingDict, callingQueue):
         updateMemberDataButton.pack()
 
 
-        root.attributes('-topmost',True)
+        root.attributes('-top',True)
+       
+        root.update()
+        root.attributes('-top', False)
         root.mainloop()
 
 def runPlaywright(callingQueue) -> None:
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            browser = playwright.chromium.launch(headless=False)
             context = browser.new_context()
             page = context.new_page()
 
             login(page)
-            updatePickleFile(page)
+            #TODO: uncomment
+            #updatePickleFile(page)
 
             addCallingLoop(callingQueue, page)
 
